@@ -6,7 +6,12 @@ import pygame
 
 WIDTH = HEIGHT = 640
 SQUARESIZE = 80
-
+COLORS = [WHITE, BLACK] = chess.COLORS
+COLOR_NAMES = ['W', 'B']
+RANK_NAMES = chess.RANK_NAMES
+FILE_NAMES = chess.FILE_NAMES
+PIECE_TYPES = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING] = chess.PIECE_TYPES
+PIECE_SYMBOLS = chess.PIECE_SYMBOLS
 
 
 class SpriteSheet():
@@ -27,20 +32,26 @@ class SpriteSheet():
 
 class Piece(pygame.sprite.Sprite):
     
-    def __init__(self, chessgame, image, name, color):
+    def __init__(self, chessgame, image, ptype, color):
         super().__init__()
         self.chessgame = chessgame
         self.screen = self.chessgame.screen
         self.image = image
-        self.name = name
+        self.ptype = ptype
         self.color = color
-
         self.x = self.y = 0
 
     def blitme(self):
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
         self.screen.blit(self.image, self.rect)
+
+    def current_square(self):
+        return FILE_NAMES[int(self.x/80)] + RANK_NAMES[int(self.y/80)]
+
+    def __repr__(self):
+        pos = FILE_NAMES[int(self.x/80)] + RANK_NAMES[int(self.y/80)]
+        return f'{PIECE_SYMBOLS[self.ptype]}-{COLOR_NAMES[self.color]}-{pos}'
 
 
 class ChessGame():
@@ -54,34 +65,33 @@ class ChessGame():
         self._load_board_map()
     
     def _load_board_map(self):
-        self.files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-        self.ranks = ['1', '2', '3', '4', '5', '6', '7', '8']
         self.squares = {}
-        for i, rank in enumerate(self.ranks[::-1]):
-            for j, file in enumerate(self.files):
+        for i, rank in enumerate(RANK_NAMES[::-1]):
+            for j, file in enumerate(FILE_NAMES):
                 self.squares[file+rank] = j*SQUARESIZE, i*SQUARESIZE 
 
     def _load_sprites(self):
         """Cut individual piece sprites from sprite sheet"""
         spritesheet = SpriteSheet()
-        colors = ['W', 'B']
-        pieces = ['K', 'Q', 'B', 'N', 'R', 'p']
         self.pieces = {}
-        
-        for i, color in enumerate(colors):
-            for j, piece_name in enumerate(pieces):
+        for i, color in enumerate(COLORS):
+            for j, ptype in enumerate([KING, 
+                                       QUEEN, 
+                                       BISHOP, 
+                                       KNIGHT,
+                                       ROOK,
+                                       PAWN]):
                 sprite_rect = (j*80, i*80, j*80 + 80, i*80 + 80)
                 sprite_img = spritesheet.image_at(sprite_rect)
-                if piece_name == 'p':
-                    for k in range(8):
-                        self.pieces[(piece_name + str(k+1), color)] = Piece(self, sprite_img, piece_name, color)
-                elif piece_name in ('B', 'N', 'R'):
-                    for k in range(2):
-                        self.pieces[(piece_name + str(k+1), color)] = Piece(self, sprite_img, piece_name, color)
+                if ptype == PAWN:
+                    for n in range(8):
+                        self.pieces[(ptype, color, n)] = Piece(self, sprite_img, ptype, color)
+                elif ptype in (BISHOP, KNIGHT, ROOK):
+                    for n in range(2):
+                        self.pieces[(ptype, color, n)] = Piece(self, sprite_img, ptype, color)
                 else:
-                    self.pieces[(piece_name, color)] = Piece(self, sprite_img, piece_name, color)
+                    self.pieces[(ptype, color, 0)] = Piece(self, sprite_img, ptype, color)
                      
-
     def _check_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -96,38 +106,33 @@ class ChessGame():
     def reset_pieces(self):
         """Reset all piece sprites to starting positions"""
         # Pawns
-        for i, file in enumerate(self.files):
-            piece_name = 'p' + str(i+1)
-            for color, rank in [('W', '2'), ('B', '7')]:
-                piece = self.pieces[(piece_name, color)]
+        for color, rank in [(WHITE, '2'), (BLACK, '7')]:
+            for i, file in enumerate(FILE_NAMES):
+                piece = self.pieces[(PAWN, color, i)]
                 piece.x, piece.y = self.squares[file + rank]
         
-        # Rooks
-        for piece_name, file in [('R1', 'a'), ('R2', 'h')]:
-            for color, rank in [('W', '1'), ('B', '8')]:
-                piece = self.pieces[(piece_name, color)]
+        for color, rank in [(WHITE, '1'), (BLACK, '8')]:
+            # Rooks
+            for n, file in enumerate(['a', 'h']):
+                piece = self.pieces[(ROOK, color, n)]
                 piece.x, piece.y = self.squares[file + rank]
         
-        # Knights
-        for piece_name, file in [('N1', 'b'), ('N2', 'g')]:
-            for color, rank in [('W', '1'), ('B', '8')]:
-                piece = self.pieces[(piece_name, color)]
+            # Knights
+            for n, file in enumerate(['b', 'g']):
+                piece = self.pieces[(KNIGHT, color, n)]
                 piece.x, piece.y = self.squares[file + rank]
         
-        # Bishops
-        for piece_name, file in [('B1', 'c'), ('B2', 'f')]:
-            for color, rank in [('W', '1'), ('B', '8')]:
-                piece = self.pieces[(piece_name, color)]
+            # Bishops
+            for n, file in enumerate(['c', 'f']):
+                piece = self.pieces[(BISHOP, color, n)]
                 piece.x, piece.y = self.squares[file + rank]
 
         # Queens
-        for color, rank in [('W', '1'), ('B', '8')]:
-            piece = self.pieces[('Q', color)]
+            piece = self.pieces[(QUEEN, color, 0)]
             piece.x, piece.y = self.squares['d' + rank]
         
         # Kings
-        for color, rank in [('W', '1'), ('B', '8')]:
-            piece = self.pieces[('K', color)]
+            piece = self.pieces[(KING, color, 0)]
             piece.x, piece.y = self.squares['e' + rank]
             
     def show_board(self):
@@ -142,10 +147,15 @@ class ChessGame():
                           SQUARESIZE,
                           SQUARESIZE)
                 pygame.draw.rect(self.screen, square_color, square)
+    
+    def move_piece(self, piece):
+        pass
 
     def run(self):
         self.show_board()
         self.reset_pieces()
+        for piece in self.pieces.values():
+            print(piece)
         while True:
             self._check_events()
             self._update_screen()
